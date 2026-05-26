@@ -1,0 +1,11 @@
+node_modules/
+clean/
+uploads/
+data/
+.env
+.env.*
+!.env.example
+.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
