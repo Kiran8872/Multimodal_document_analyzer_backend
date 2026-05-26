@@ -96,7 +96,7 @@ router.post('/upload', uploadMemory.single('file'), async (req, res) => {
       originalName: file.originalname,
       fileType: fileExt,
       fileSize: file.size,
-      filePath: filePath,
+      filePath: filePath || '',
       pageCount: pageCount,
       processingStatus: 'processing',
       extractedText: extractedText
