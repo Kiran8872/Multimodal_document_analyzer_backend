@@ -17,11 +17,39 @@ function getAllowedOrigins() {
     .filter(Boolean);
 }
 
+function getAllowedVercelProjects() {
+  return (process.env.CORS_VERCEL_PROJECTS || 'multimodal-document-analyzer-frontend,multimodal-document-analyzer-fronte')
+    .split(',')
+    .map((project) => project.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+
+  const allowedOrigins = getAllowedOrigins();
+  if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+    if (protocol !== 'https:' || !hostname.endsWith('.vercel.app')) {
+      return false;
+    }
+
+    return getAllowedVercelProjects().some((project) =>
+      hostname === `${project}.vercel.app` || hostname.startsWith(`${project}-`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Middleware
 app.use(cors({
   origin(origin, callback) {
-    const allowedOrigins = getAllowedOrigins();
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`Origin not allowed by CORS: ${origin}`));

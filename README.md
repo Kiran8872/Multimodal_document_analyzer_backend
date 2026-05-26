@@ -27,6 +27,7 @@ Set these environment variables in Vercel:
 MONGODB_URI=mongodb+srv://...
 GEMINI_API_KEY=...
 CORS_ORIGIN=https://your-frontend-domain.vercel.app
+CORS_VERCEL_PROJECTS=multimodal-document-analyzer-frontend,multimodal-document-analyzer-fronte
 ALLOW_LOCAL_DB_FALLBACK=false
 LANGSMITH_TRACING=true
 LANGSMITH_TRACING_V2=true
