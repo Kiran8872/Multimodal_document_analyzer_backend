@@ -33,6 +33,10 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
 async function ensureDatabaseConnection() {
   if (!databaseReadyPromise) {
     databaseReadyPromise = db.connectToDatabase().catch((error) => {
@@ -50,6 +54,15 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     message: 'Multimodal Document Analyzer API is running',
     timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'Multimodal Document Analyzer API',
+    health: '/api/health',
+    apiBase: '/api'
   });
 });
 
