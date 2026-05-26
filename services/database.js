@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 let inMemory = false;
 let inMemoryDb = null;
+let connectionPromise = null;
 try {
   inMemoryDb = require('./inMemoryDb');
 } catch (e) {
@@ -12,6 +13,23 @@ const { Document } = require('../database/models');
  * Connect to MongoDB; fall back to in-memory if connection fails
  */
 async function connectToDatabase() {
+  if (inMemory || mongoose.connection.readyState === 1) {
+    return true;
+  }
+
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+
+  connectionPromise = connectWithFallback().catch((error) => {
+    connectionPromise = null;
+    throw error;
+  });
+
+  return connectionPromise;
+}
+
+async function connectWithFallback() {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/multimodal_analyzer';
     await mongoose.connect(mongoUri);
@@ -19,13 +37,18 @@ async function connectToDatabase() {
     return true;
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
-    if (inMemoryDb) {
+
+    const allowLocalFallback = process.env.ALLOW_LOCAL_DB_FALLBACK !== 'false'
+      && process.env.VERCEL !== '1';
+
+    if (allowLocalFallback && inMemoryDb) {
       inMemory = true;
       await inMemoryDb.connectToDatabase();
       console.warn('Using in-memory database fallback. Data will be persisted to backend/data/inmemory_db.json');
       return true;
     }
-    return false;
+
+    throw error;
   }
 }
 

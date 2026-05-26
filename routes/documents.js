@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const fs = require('fs');
 
-const { upload, uploadMemory } = require('../services/fileUpload');
-const { extractFromPdf } = require('../services/pdfExtractor');
-const { extractFromDocx } = require('../services/docxExtractor');
-const { extractFromTxt } = require('../services/txtExtractor');
-const { extractFromImage } = require('../services/ocrExtractor');
+const { uploadMemory } = require('../services/fileUpload');
+const { extractFromPdf, extractFromPdfBuffer } = require('../services/pdfExtractor');
+const { extractFromDocx, extractFromDocxBuffer } = require('../services/docxExtractor');
+const { extractFromTxt, extractFromTxtBuffer } = require('../services/txtExtractor');
+const { extractFromImage, extractFromImageBuffer } = require('../services/ocrExtractor');
 const { analyzeDocument, askQuestion, generateStudyPlan, getAiStatus } = require('../services/aiAnalysis');
 const { getLangSmithStatus } = require('../services/langsmithTracing');
 const db = require('../services/database');
@@ -46,17 +45,8 @@ router.post('/upload', uploadMemory.single('file'), async (req, res) => {
 
     const file = req.file;
     const fileExt = getFileExtension(file.originalname);
-    const uploadsDir = path.join(__dirname, '../uploads');
     const fileName = file.filename || generateUniqueFilename(file.originalname);
-    const filePath = file.path || path.join(uploadsDir, fileName);
-
-    // Persist memory uploads to disk so the existing extractors can read them.
-    if (!file.path && file.buffer) {
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      fs.writeFileSync(filePath, file.buffer);
-    }
+    const filePath = file.path || null;
 
     // Extract text based on file type
     let extractedText = '';
@@ -64,19 +54,25 @@ router.post('/upload', uploadMemory.single('file'), async (req, res) => {
 
     switch (fileExt) {
       case 'pdf':
-        const pdfResult = await extractFromPdf(filePath);
+        const pdfResult = file.buffer
+          ? await extractFromPdfBuffer(file.buffer)
+          : await extractFromPdf(filePath);
         extractedText = pdfResult.text;
         pageCount = pdfResult.pageCount;
         break;
       
       case 'docx':
-        const docxResult = await extractFromDocx(filePath);
+        const docxResult = file.buffer
+          ? await extractFromDocxBuffer(file.buffer)
+          : await extractFromDocx(filePath);
         extractedText = docxResult.text;
         pageCount = docxResult.pageCount;
         break;
       
       case 'txt':
-        const txtResult = await extractFromTxt(filePath);
+        const txtResult = file.buffer
+          ? await extractFromTxtBuffer(file.buffer)
+          : await extractFromTxt(filePath);
         extractedText = txtResult.text;
         pageCount = txtResult.pageCount;
         break;
@@ -84,7 +80,9 @@ router.post('/upload', uploadMemory.single('file'), async (req, res) => {
       case 'jpg':
       case 'jpeg':
       case 'png':
-        const ocrResult = await extractFromImage(filePath);
+        const ocrResult = file.buffer
+          ? await extractFromImageBuffer(file.buffer)
+          : await extractFromImage(filePath);
         extractedText = ocrResult.text;
         break;
       

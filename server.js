@@ -8,17 +8,41 @@ const documentRoutes = require('./routes/documents');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+let databaseReadyPromise = null;
+
+function getAllowedOrigins() {
+  return (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    const allowedOrigins = getAllowedOrigins();
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  }
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
-app.use('/api', documentRoutes);
+async function ensureDatabaseConnection() {
+  if (!databaseReadyPromise) {
+    databaseReadyPromise = db.connectToDatabase().catch((error) => {
+      databaseReadyPromise = null;
+      throw error;
+    });
+  }
+
+  return databaseReadyPromise;
+}
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -28,6 +52,20 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Routes that need document storage
+app.use('/api', async (req, res, next) => {
+  try {
+    await ensureDatabaseConnection();
+    next();
+  } catch (error) {
+    console.error('Database initialization error:', error.message);
+    res.status(503).json({
+      error: 'Database unavailable',
+      message: 'Set a valid MONGODB_URI for the deployed backend.'
+    });
+  }
+}, documentRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -53,23 +91,19 @@ app.use((req, res) => {
 async function startServer() {
   try {
     // Connect to database
-    await db.connectToDatabase();
-    
-    // Start listening
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`API available at http://localhost:${PORT}/api`);
-    });
+    await ensureDatabaseConnection();
   } catch (error) {
     console.error('Failed to start server:', error.message);
-    // Still try to start the server even if database fails
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log('Warning: Database not connected. Some features may not work.');
-    });
   }
+
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`API available at http://localhost:${PORT}/api`);
+  });
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;
