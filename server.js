@@ -48,6 +48,21 @@ async function ensureDatabaseConnection() {
   return databaseReadyPromise;
 }
 
+function sendApiOverview(req, res) {
+  res.json({
+    status: 'ok',
+    service: 'Multimodal Document Analyzer API',
+    apiBase: '/api',
+    endpoints: {
+      health: '/api/health',
+      status: '/api/status',
+      documents: '/api/documents',
+      upload: '/api/upload',
+      compare: '/api/compare'
+    }
+  });
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -57,14 +72,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/', (req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'Multimodal Document Analyzer API',
-    health: '/api/health',
-    apiBase: '/api'
-  });
-});
+app.get(['/', '/api', '/api/', '/api/index', '/api/index.js'], sendApiOverview);
 
 // Routes that need document storage
 app.use('/api', async (req, res, next) => {
